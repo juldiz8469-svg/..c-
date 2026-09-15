@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Сөздерді дұрыс жазу ойыны</title>
+<style>
+  * {
+    box-sizing: border-box;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: linear-gradient(135deg, #e0f7fa 0%, #fff9c4 100%);
+    touch-action: none;
+  }
+
+  #game {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    padding: 6px 16px 0 16px;
+  }
+
+  h1 {
+    text-align: center;
+    font-size: 22px;
+    color: #00695c;
+    margin: 4px 0;
+    flex-shrink: 0;
+  }
+
+  #zones {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    margin: 30px 0 14px 0;
+    flex-shrink: 0;
+  }
+
+  /* ====== ҰЯШЫҚТАР ====== */
+  .zone {
+    width: 46%;
+    max-width: 560px;
+    min-height: 140px;
+    border-radius: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.15s;
+    position: relative;
+    padding: 34px 10px 10px 10px;
+    overflow-y: auto;
+  }
+
+  /* 1-ұяшық — БӨЛЕК (қызғылт-сары) */
+  #zone-separate {
+    background: #fff3e0;
+    border: 4px dashed #ef6c00;
+  }
+  #zone-separate.drag-over {
+    background: #ffe0b2;
+    border-color: #e65100;
+    transform: scale(1.02);
+  }
+
+  /* 2-ұяшық — БІРГЕ (жасыл-көк) */
+  #zone-together {
+    background: #e0f2f1;
+    border: 4px dashed #00897b;
+  }
+  #zone-together.drag-over {
+    background: #b2dfdb;
+    border-color: #004d40;
+    transform: scale(1.02);
+  }
+
+  /* ====== ҰЯШЫҚ ТАҚЫРЫПТАРЫ — енді үлкен және анық ====== */
+  .zone-title {
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 8px 24px;
+    border-radius: 30px;
+    font-size: 19px;
+    font-weight: bold;
+    color: #fff;
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    letter-spacing: 0.5px;
+  }
+
+  /* 1-ұяшық тақырыбы */
+  #zone-separate .zone-title {
+    background: linear-gradient(135deg, #f57c00, #e65100);
+    border: 2px solid #fff;
+  }
+
+  /* 2-ұяшық тақырыбы */
+  #zone-together .zone-title {
+    background: linear-gradient(135deg, #00897b, #004d40);
+    border: 2px solid #fff;
+  }
+
+  .zone .dropped-word {
+    font-size: 18px;
+    font-weight: bold;
+    padding: 6px 12px;
+    border-radius: 10px;
+    color: #fff;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.3s;
+    border: 3px solid transparent;
+  }
+  .zone .dropped-word.correct-check {
+    border-color: #1b5e20;
+    box-shadow: 0 0 0 3px #66bb6a, 0 0 16px #4caf50;
+    animation: pulseGreen 0.8s;
+  }
+  .zone .dropped-word.wrong-check {
+    border-color: #b71c1c;
+    box-shadow: 0 0 0 3px #ef5350, 0 0 16px #f44336;
+    background: #e53935 !important;
+    animation: pulseRed 0.8s;
+  }
+  @keyframes pulseGreen {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.12); }
+    100% { transform: scale(1); }
+  }
+  @keyframes pulseRed {
+    0% { transform: scale(1); }
+    25% { transform: scale(1.15) rotate(-2deg); }
+    75% { transform: scale(1.15) rotate(2deg); }
+    100% { transform: scale(1); }
+  }
+
+  #words-area {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    justify-content: center;
+    gap: 10px;
+    padding: 12px 10px 16px 10px;
+    background: rgba(255,255,255,0.5);
+    border-radius: 18px 18px 0 0;
+    border-top: 3px solid #00897b;
+  }
+
+  .word {
+    font-size: 22px;
+    font-weight: bold;
+    padding: 10px 18px;
+    border-radius: 14px;
+    cursor: grab;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    transition: transform 0.1s, box-shadow 0.1s, opacity 0.2s;
+    white-space: nowrap;
+    color: #fff;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+    touch-action: none;
+  }
+  .word:active { cursor: grabbing; }
+  .word.dragging { opacity: 0.25; }
+  .word.hidden { display: none; }
+  .word.bounce-back { animation: bounceBack 0.35s; }
+  @keyframes bounceBack {
+    0% { transform: scale(1.1); }
+    50% { transform: scale(0.9); }
+    100% { transform: scale(1); }
+  }
+
+  #drag-clone {
+    position: fixed;
+    pointer-events: none;
+    z-index: 100000;
+    opacity: 0.95;
+    transform: rotate(-3deg) scale(1.08);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.35);
+    border-radius: 14px;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+    padding: 10px 18px;
+    white-space: nowrap;
+    font-size: 22px;
+  }
+
+  .plus-one {
+    position: fixed;
+    font-size: 40px;
+    font-weight: bold;
+    color: #2e7d32;
+    pointer-events: none;
+    z-index: 99999;
+    animation: floatUp 1s ease-out forwards;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.25);
+  }
+  @keyframes floatUp {
+    0% { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-160px) scale(1.7); }
+  }
+
+  #check-btn {
+    position: fixed;
+    bottom: 18px;
+    right: 24px;
+    font-size: 20px;
+    padding: 12px 34px;
+    border: none;
+    border-radius: 40px;
+    background: #ff6f00;
+    color: #fff;
+    cursor: pointer;
+    font-weight: bold;
+    box-shadow: 0 6px 16px rgba(255,111,0,0.4);
+    transition: all 0.2s;
+    z-index: 500;
+  }
+  #check-btn:hover {
+    background: #e65100;
+    transform: scale(1.05);
+  }
+  #check-btn:disabled {
+    background: #bdbdbd;
+    box-shadow: none;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  #result-msg {
+    position: fixed;
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 22px;
+    font-weight: bold;
+    padding: 10px 28px;
+    border-radius: 30px;
+    background: #fff;
+    color: #333;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 500;
+    pointer-events: none;
+  }
+  #result-msg.show { opacity: 1; }
+  #result-msg.good { background: #c8e6c9; color: #1b5e20; }
+  #result-msg.bad { background: #ffcdd2; color: #b71c1c; }
+
+  #progress {
+    position: fixed;
+    top: 8px;
+    right: 20px;
+    font-size: 16px;
+    font-weight: bold;
+    color: #00695c;
+    background: rgba(255,255,255,0.85);
+    padding: 5px 14px;
+    border-radius: 20px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    z-index: 100;
+  }
+
+  #reset-btn {
+    position: fixed;
+    top: 8px;
+    left: 20px;
+    font-size: 16px;
+    padding: 6px 18px;
+    border: none;
+    border-radius: 30px;
+    background: #00897b;
+    color: #fff;
+    cursor: pointer;
+    font-weight: bold;
+    box-shadow: 0 3px 10px rgba(0,137,123,0.3);
+    z-index: 100;
+    transition: background 0.2s;
+  }
+  #reset-btn:hover { background: #00695c; }
+
+  #words-area::-webkit-scrollbar,
+  .zone::-webkit-scrollbar { width: 6px; }
+  #words-area::-webkit-scrollbar-thumb,
+  .zone::-webkit-scrollbar-thumb { background: #00897b; border-radius: 10px; }
+</style>
+</head>
+<body>
+
+<div id="game">
+  <h1>Сөздерді дұрыс жазылуына қарай ұяшыққа сал</h1>
+
+  <div id="zones">
+    <div class="zone" id="zone-separate" data-type="separate">
+      <div class="zone-title">1 — БӨЛЕК жазылатын сөздер</div>
+    </div>
+    <div class="zone" id="zone-together" data-type="together">
+      <div class="zone-title">2 — БІРГЕ жазылатын сөздер</div>
+    </div>
+  </div>
+
+  <div id="words-area"></div>
+</div>
+
+<button id="reset-btn" onclick="restartGame()">↻ Қайта бастау</button>
+<div id="progress">0 / 0</div>
+<button id="check-btn" onclick="checkAnswers()">✓ Тексеру</button>
+<div id="result-msg"></div>
+
+<script>
+// ========== ДЕРЕКТЕР ==========
+const allWords = [
+  { display: "көкжиек",                        answer: "together" },
+  { display: "балабақша",                      answer: "together" },
+  { display: "Қаламқас",                       answer: "together" },
+  { display: "Ақмарал",                        answer: "together" },
+  { display: "Ботагөз",                        answer: "together" },
+  { display: "көгорай",                        answer: "together" },
+  { display: "қолғанат",                       answer: "together" },
+  { display: "жаздыгүні",                      answer: "together" },
+  { display: "Айгөз",                          answer: "together" },
+  { display: "қолғап",                         answer: "together" },
+  { display: "Жезқазған",                      answer: "together" },
+  { display: "Марқакөл",                       answer: "together" },
+  { display: "Торайғыр",                       answer: "together" },
+  { display: "Қожахмет",                       answer: "together" },
+  { display: "әркім",                          answer: "together" },
+  { display: "ешқайда",                        answer: "together" },
+  { display: "кейбіреу",                       answer: "together" },
+  { display: "бірнеше",                        answer: "together" },
+  { display: "әлдеқашан",                      answer: "together" },
+
+  { display: "еш адам",                        answer: "separate" },
+  { display: "кей жылдары",                    answer: "separate" },
+  { display: "бір мезгілде",                   answer: "separate" },
+  { display: "Қазақстан Республикасы",         answer: "separate" },
+  { display: "Қазақстан Республикасының Білім және ғылым министрлігі", answer: "separate" },
+  { display: "Біріккен Ұлттар Ұйымы",          answer: "separate" },
+
+  { display: "әрсыныптан",     answer: "separate" },
+  { display: "ешуақытта",      answer: "separate" },
+  { display: "бірадам",        answer: "separate" },
+  { display: "алғысөз",        answer: "separate" },
+  { display: "онбес",          answer: "separate" },
+  { display: "жақсыкөру",      answer: "separate" },
+  { display: "затесім",        answer: "separate" },
+  { display: "астұзы",         answer: "separate" },
+  { display: "онүш",           answer: "separate" },
+  { display: "екімың",         answer: "separate" },
+  { display: "онжеті",         answer: "separate" },
+  { display: "жүзелубес",      answer: "separate" },
+  { display: "ақсары",         answer: "separate" },
+  { display: "қараторы",       answer: "separate" },
+  { display: "ұзынбойлы",      answer: "separate" },
+  { display: "көкала",         answer: "separate" },
+];
+
+const colors = [
+  "#e57373", "#f06292", "#ba68c8", "#9575cd", "#7986cb",
+  "#64b5f6", "#4fc3f7", "#4dd0e1", "#4db6ac", "#81c784",
+  "#aed581", "#dce775", "#fff176", "#ffd54f", "#ffb74d",
+  "#ff8a65", "#a1887f", "#90a4ae", "#f48fb1", "#ce93d8",
+  "#ef9a9a", "#80cbc4", "#c5e1a5", "#ffe082", "#ffab91"
+];
+
+let totalWords = 0;
+let placedCount = 0;
+
+const wordsArea   = document.getElementById('words-area');
+const zoneSeparate = document.getElementById('zone-separate');
+const zoneTogether = document.getElementById('zone-together');
+const progressEl  = document.getElementById('progress');
+const checkBtn    = document.getElementById('check-btn');
+const resultMsg   = document.getElementById('result-msg');
+
+let dragState = null;
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function initGame() {
+  wordsArea.innerHTML = '';
+  zoneSeparate.querySelectorAll('.dropped-word').forEach(e => e.remove());
+  zoneTogether.querySelectorAll('.dropped-word').forEach(e => e.remove());
+  resultMsg.classList.remove('show', 'good', 'bad');
+  resultMsg.textContent = '';
+  checkBtn.disabled = false;
+  checkBtn.style.display = '';
+  placedCount = 0;
+
+  const list = shuffle([...allWords]);
+  totalWords = list.length;
+
+  list.forEach((item, idx) => {
+    const el = document.createElement('div');
+    el.className = 'word';
+    el.textContent = item.display;
+    el.dataset.answer = item.answer;
+    el.dataset.display = item.display;
+    el.style.background = colors[idx % colors.length];
+
+    let fs = 22;
+    if (item.display.length > 40) fs = 13;
+    else if (item.display.length > 28) fs = 15;
+    else if (item.display.length > 18) fs = 17;
+    else if (item.display.length > 12) fs = 19;
+    el.style.fontSize = fs + 'px';
+
+    wordsArea.appendChild(el);
+  });
+
+  updateProgress();
+}
+
+function updateProgress() {
+  progressEl.textContent = `${placedCount} / ${totalWords}`;
+}
+
+wordsArea.addEventListener('pointerdown', (e) => {
+  const word = e.target.closest('.word');
+  if (!word || word.classList.contains('hidden')) return;
+
+  e.preventDefault();
+  try { word.setPointerCapture(e.pointerId); } catch(_) {}
+
+  const rect = word.getBoundingClientRect();
+
+  const clone = word.cloneNode(true);
+  clone.id = 'drag-clone';
+  clone.style.width = rect.width + 'px';
+  clone.style.height = rect.height + 'px';
+  clone.style.left = rect.left + 'px';
+  clone.style.top = rect.top + 'px';
+  clone.style.background = word.style.background;
+  clone.style.fontSize = word.style.fontSize;
+  document.body.appendChild(clone);
+
+  dragState = {
+    wordEl: word,
+    cloneEl: clone,
+    pointerId: e.pointerId,
+    startX: e.clientX,
+    startY: e.clientY,
+    offsetX: e.clientX - rect.left,
+    offsetY: e.clientY - rect.top,
+    moved: false,
+  };
+
+  word.classList.add('dragging');
+});
+
+document.addEventListener('pointermove', (e) => {
+  if (!dragState || e.pointerId !== dragState.pointerId) return;
+  e.preventDefault();
+
+  const dx = e.clientX - dragState.startX;
+  const dy = e.clientY - dragState.startY;
+  if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragState.moved = true;
+
+  dragState.cloneEl.style.left = (e.clientX - dragState.offsetX) + 'px';
+  dragState.cloneEl.style.top  = (e.clientY - dragState.offsetY) + 'px';
+
+  document.querySelectorAll('.zone').forEach(z => z.classList.remove('drag-over'));
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const zone = el ? el.closest('.zone') : null;
+  if (zone) zone.classList.add('drag-over');
+}, { passive: false });
+
+document.addEventListener('pointerup', (e) => {
+  if (!dragState || e.pointerId !== dragState.pointerId) return;
+  finishDrag(e.clientX, e.clientY, false);
+});
+
+document.addEventListener('pointercancel', (e) => {
+  if (!dragState || e.pointerId !== dragState.pointerId) return;
+  finishDrag(e.clientX, e.clientY, true);
+});
+
+function finishDrag(x, y, cancelled) {
+  if (!dragState) return;
+  const { wordEl, cloneEl, moved } = dragState;
+
+  cloneEl.remove();
+  wordEl.classList.remove('dragging');
+  document.querySelectorAll('.zone').forEach(z => z.classList.remove('drag-over'));
+
+  const el = document.elementFromPoint(x, y);
+  const zone = el ? el.closest('.zone') : null;
+
+  if (!cancelled && moved && zone) {
+    dropIntoZone(zone, wordEl, x, y);
+  } else {
+    wordEl.classList.add('bounce-back');
+    setTimeout(() => wordEl.classList.remove('bounce-back'), 350);
+  }
+
+  dragState = null;
+}
+
+function dropIntoZone(zone, wordEl, x, y) {
+  const display = wordEl.dataset.display;
+  const answer  = wordEl.dataset.answer;
+  const zoneType = zone.dataset.type;
+  const bg      = wordEl.style.background;
+  const fs      = wordEl.style.fontSize;
+
+  const dropped = document.createElement('div');
+  dropped.className = 'dropped-word';
+  dropped.textContent = display;
+  dropped.dataset.answer = answer;
+  dropped.dataset.display = display;
+  dropped.style.background = bg;
+  dropped.style.fontSize = fs;
+  dropped.title = "Қайта алу үшін басыңыз";
+  dropped.addEventListener('click', () => returnWord(dropped));
+
+  zone.appendChild(dropped);
+  wordEl.classList.add('hidden');
+
+  placedCount++;
+  updateProgress();
+
+  // ТЕК дұрыс болса +1
+  if (answer === zoneType) {
+    showPlusOne(x, y);
+  }
+
+  resultMsg.classList.remove('show', 'good', 'bad');
+  document.querySelectorAll('.dropped-word').forEach(d => {
+    d.classList.remove('correct-check', 'wrong-check');
+  });
+  checkBtn.disabled = false;
+}
+
+function returnWord(dropped) {
+  const display = dropped.dataset.display;
+  const orig = [...wordsArea.querySelectorAll('.word')].find(
+    w => w.dataset.display === display && w.classList.contains('hidden')
+  );
+  if (orig) orig.classList.remove('hidden');
+  dropped.remove();
+  placedCount--;
+  updateProgress();
+  document.querySelectorAll('.dropped-word').forEach(d => {
+    d.classList.remove('correct-check', 'wrong-check');
+  });
+  resultMsg.classList.remove('show', 'good', 'bad');
+}
+
+function checkAnswers() {
+  const allDropped = document.querySelectorAll('.dropped-word');
+  if (allDropped.length === 0) {
+    showResult("Әзірге ешбір сөз салынған жоқ!", false);
+    return;
+  }
+
+  let correct = 0;
+  let wrong = 0;
+
+  [zoneSeparate, zoneTogether].forEach(zone => {
+    const zoneType = zone.dataset.type;
+    zone.querySelectorAll('.dropped-word').forEach(d => {
+      const answer = d.dataset.answer;
+      d.classList.remove('correct-check', 'wrong-check');
+      if (answer === zoneType) {
+        d.classList.add('correct-check');
+        correct++;
+      } else {
+        d.classList.add('wrong-check');
+        wrong++;
+      }
+    });
+  });
+
+  if (wrong === 0 && placedCount === totalWords) {
+    showResult(`🎉 Барлығы дұрыс! ${correct} сөз дұрыс орналастырылды!`, true);
+    checkBtn.disabled = true;
+  } else if (wrong === 0) {
+    showResult(`✓ Барлық салынған сөз дұрыс! (${correct} сөз). Қалғандарын да салыңыз.`, true);
+  } else {
+    showResult(`✗ ${wrong} сөз қате (қызыл), ${correct} сөз дұрыс (жасыл).`, false);
+  }
+}
+
+function showResult(text, good) {
+  resultMsg.textContent = text;
+  resultMsg.classList.remove('good', 'bad');
+  resultMsg.classList.add('show', good ? 'good' : 'bad');
+  clearTimeout(showResult._t);
+  showResult._t = setTimeout(() => {
+    resultMsg.classList.remove('show');
+  }, 4000);
+}
+
+function showPlusOne(x, y) {
+  const el = document.createElement('div');
+  el.className = 'plus-one';
+  el.textContent = '+1';
+  el.style.left = (x - 20) + 'px';
+  el.style.top  = (y - 40) + 'px';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1000);
+}
+
+function restartGame() {
+  initGame();
+}
+
+initGame();
+</script>
+</body>
+</html>
